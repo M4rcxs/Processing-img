@@ -2,8 +2,6 @@ import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 import numpy as np
-import scipy.ndimage  # Import scipy for the Gaussian filter
-
 
 def load_image():
     global img_cv
@@ -42,7 +40,7 @@ def apply_filter(filter_type):
     if img_cv is None:
         return
     if filter_type == "gaussian":
-        filtered_img = apply_gaussian_filter(img_cv, sigma=2)
+        filtered_img = manual_gaussian_filter(img_cv, kernel_size=5, sigma=1.0)
     elif filter_type == "laplacian":
         gray = convert_to_gray(img_cv)
         laplacian_kernel = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])
@@ -103,23 +101,17 @@ def manual_mean_filter(image, kernel_size):
     
     return filtered_img
 
-def apply_gaussian_filter(image, sigma):
-    """Aplica um filtro Gaussiano (desfoque) para cada canal RGB."""
-    # Separar os canais R, G, B da imagem
-    r_channel, g_channel, b_channel = image[..., 0], image[..., 1], image[..., 2]
-    
-    # Aplicar o filtro Gaussiano a cada canal
-    r_filtered = scipy.ndimage.gaussian_filter(r_channel, sigma=sigma)
-    g_filtered = scipy.ndimage.gaussian_filter(g_channel, sigma=sigma)
-    b_filtered = scipy.ndimage.gaussian_filter(b_channel, sigma=sigma)
-    
-    # Recombinar os canais filtrados em uma imagem RGB
-    filtered_img = np.stack([r_filtered, g_filtered, b_filtered], axis=-1)
-    
-    # Garantir que os valores estejam na faixa [0, 255]
-    filtered_img = np.clip(filtered_img, 0, 255).astype(np.uint8)
-    
-    return filtered_img
+def manual_gaussian_filter(image, kernel_size, sigma):
+    """Aplica filtro Gaussiano manualmente em cada canal RGB."""
+    kernel = gaussian_kernel(kernel_size, sigma)
+    return manual_mean_filter(image, kernel_size)
+
+def gaussian_kernel(size, sigma):
+    """Cria um kernel Gaussiano 2D."""
+    ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
+    xx, yy = np.meshgrid(ax, ax)
+    kernel = np.exp(-0.5 * (np.square(xx) + np.square(yy)) / np.square(sigma))
+    return kernel / np.sum(kernel)
 
 def convert_to_gray(image):
     """Converte uma imagem para tons de cinza manualmente."""
