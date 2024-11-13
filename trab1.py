@@ -177,4 +177,111 @@ sobel_button.grid(row=0, column=1, padx=10, pady=5)
 mean_button = tk.Button(filter_frame, text="Mean Filter", command=lambda: apply_filter("mean"), bg="#99ff99")
 mean_button.grid(row=1, column=1, padx=10, pady=5)
 
+# Botões para operações morfológicas (coluna 1)
+erosion_button = tk.Button(filter_frame, text="Erosion", command=lambda: apply_morphology("erosion"), bg="#ffb3b3")
+erosion_button.grid(row=2, column=0, padx=10, pady=5)
+
+dilation_button = tk.Button(filter_frame, text="Dilation", command=lambda: apply_morphology("dilation"), bg="#ffd9b3")
+dilation_button.grid(row=3, column=0, padx=10, pady=5)
+
+# Botões para operações morfológicas (coluna 2)
+opening_button = tk.Button(filter_frame, text="Opening", command=lambda: apply_morphology("opening"), bg="#b3d9ff")
+opening_button.grid(row=2, column=1, padx=10, pady=5)
+
+closing_button = tk.Button(filter_frame, text="Closing", command=lambda: apply_morphology("closing"), bg="#b3ffb3")
+closing_button.grid(row=3, column=1, padx=10, pady=5)
+
+# Botões para segmentação (coluna 1)
+binary_threshold_button = tk.Button(filter_frame, text="Binary Threshold", command=lambda: apply_segmentation("binary_threshold"), bg="#ff9999")
+binary_threshold_button.grid(row=4, column=0, padx=10, pady=5)
+
+adaptive_threshold_button = tk.Button(filter_frame, text="Adaptive Threshold", command=lambda: apply_segmentation("adaptive_threshold"), bg="#ffcc99")
+adaptive_threshold_button.grid(row=4, column=1, padx=10, pady=5)
+
+
+def apply_morphology(operation):
+    if img_cv is None:
+        return
+
+    gray = convert_to_gray(img_cv)
+    binary = (gray > 128).astype(np.uint8) * 255  # Limiarização binária para segmentação inicial
+
+    if operation == "erosion":
+        result = erosion(binary, kernel_size=3)
+    elif operation == "dilation":
+        result = dilation(binary, kernel_size=3)
+    elif operation == "opening":
+        result = dilation(erosion(binary, kernel_size=3), kernel_size=3)
+    elif operation == "closing":
+        result = erosion(dilation(binary, kernel_size=3), kernel_size=3)
+
+    display_image(np.stack([result] * 3, axis=-1), original=False)  # Exibe o resultado
+
+def erosion(image, kernel_size):
+    """Aplica a operação de erosão."""
+    kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+    padded_image = np.pad(image, ((kernel_size//2, kernel_size//2), (kernel_size//2, kernel_size//2)), mode='constant', constant_values=0)
+    output = np.zeros_like(image)
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            region = padded_image[i:i+kernel_size, j:j+kernel_size]
+            output[i, j] = np.min(region * kernel)
+    return output
+
+def dilation(image, kernel_size):
+    """Aplica a operação de dilatação."""
+    kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+    padded_image = np.pad(image, ((kernel_size//2, kernel_size//2), (kernel_size//2, kernel_size//2)), mode='constant', constant_values=0)
+    output = np.zeros_like(image)
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            region = padded_image[i:i+kernel_size, j:j+kernel_size]
+            output[i, j] = np.max(region * kernel)
+    return output
+
+def adaptive_threshold(image):
+    """Aplica limiarização adaptativa (média da vizinhança)."""
+    kernel_size = 11  # Tamanho da vizinhança
+    offset = 15  # Subtração para ajustar o limiar
+    padded_image = np.pad(image, ((kernel_size//2, kernel_size//2), (kernel_size//2, kernel_size//2)), mode='constant', constant_values=0)
+    output = np.zeros_like(image, dtype=np.uint8)  # Garante que o tipo seja uint8
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            region = padded_image[i:i+kernel_size, j:j+kernel_size]
+            local_threshold = np.mean(region) - offset
+            output[i, j] = 255 if image[i, j] > local_threshold else 0
+    return output
+
+def apply_segmentation(method):
+    if img_cv is None:
+        return
+
+    gray = convert_to_gray(img_cv)
+
+    if method == "binary_threshold":
+        threshold = 128
+        segmented = (gray > threshold).astype(np.uint8) * 255
+    elif method == "adaptive_threshold":
+        segmented = adaptive_threshold(gray)
+
+    segmented = np.clip(segmented, 0, 255).astype(np.uint8)  # Garante o formato correto
+    display_image(np.stack([segmented] * 3, axis=-1), original=False)  # Exibe a segmentação
+
+# Expande a interface gráfica
+morphology_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Morphology", menu=morphology_menu)
+morphology_menu.add_command(label="Erosion", command=lambda: apply_morphology("erosion"))
+morphology_menu.add_command(label="Dilation", command=lambda: apply_morphology("dilation"))
+morphology_menu.add_command(label="Opening", command=lambda: apply_morphology("opening"))
+morphology_menu.add_command(label="Closing", command=lambda: apply_morphology("closing"))
+
+segmentation_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Segmentation", menu=segmentation_menu)
+segmentation_menu.add_command(label="Binary Threshold", command=lambda: apply_segmentation("binary_threshold"))
+segmentation_menu.add_command(label="Adaptive Threshold", command=lambda: apply_segmentation("adaptive_threshold"))
+
+
 root.mainloop()
