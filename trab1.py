@@ -200,11 +200,14 @@ adaptive_threshold_button.grid(row=4, column=1, padx=10, pady=5)
 
 
 def apply_morphology(operation):
+    """
+    Aplica uma operação morfológica (erosão, dilatação, abertura ou fechamento).
+    """
     if img_cv is None:
         return
 
     gray = convert_to_gray(img_cv)
-    binary = (gray > 128).astype(np.uint8) * 255  # Limiarização binária para segmentação inicial
+    binary = (gray > 128).astype(np.uint8) * 255  # Converte para binário
 
     if operation == "erosion":
         result = erosion(binary, kernel_size=3)
@@ -215,31 +218,81 @@ def apply_morphology(operation):
     elif operation == "closing":
         result = erosion(dilation(binary, kernel_size=3), kernel_size=3)
 
-    display_image(np.stack([result] * 3, axis=-1), original=False)  # Exibe o resultado
+    # Converte o resultado para RGB e exibe
+    display_image(np.stack([result] * 3, axis=-1), original=False)
+
 
 def erosion(image, kernel_size):
-    """Aplica a operação de erosão."""
+    """
+    Aplica a operação de erosão em uma imagem binária ou tons de cinza.
+
+    Parâmetros:
+        image (numpy.ndarray): Imagem de entrada (2D).
+        kernel_size (int): Tamanho do kernel (deve ser ímpar).
+
+    Retorno:
+        numpy.ndarray: Imagem erodida.
+    """
+    # Verifica se o tamanho do kernel é ímpar
+    if kernel_size % 2 == 0:
+        raise ValueError("O tamanho do kernel deve ser ímpar.")
+
+    # Criação do kernel (estrutura retangular)
     kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
-    padded_image = np.pad(image, ((kernel_size//2, kernel_size//2), (kernel_size//2, kernel_size//2)), mode='constant', constant_values=0)
+
+    # Adiciona padding à imagem
+    pad = kernel_size // 2
+    padded_image = np.pad(image, ((pad, pad), (pad, pad)), mode='constant', constant_values=0)
+
+    # Inicializa a imagem de saída
     output = np.zeros_like(image)
 
+    # Aplica erosão manualmente
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            region = padded_image[i:i+kernel_size, j:j+kernel_size]
+            # Extrai a região correspondente ao kernel
+            region = padded_image[i:i + kernel_size, j:j + kernel_size]
+            # Calcula o valor mínimo na região
             output[i, j] = np.min(region * kernel)
+
     return output
+
 
 def dilation(image, kernel_size):
-    """Aplica a operação de dilatação."""
+    """
+    Aplica a operação de dilatação em uma imagem binária ou tons de cinza.
+
+    Parâmetros:
+        image (numpy.ndarray): Imagem de entrada (2D).
+        kernel_size (int): Tamanho do kernel (deve ser ímpar).
+
+    Retorno:
+        numpy.ndarray: Imagem dilatada.
+    """
+    # Verifica se o tamanho do kernel é ímpar
+    if kernel_size % 2 == 0:
+        raise ValueError("O tamanho do kernel deve ser ímpar.")
+
+    # Criação do kernel (estrutura retangular)
     kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
-    padded_image = np.pad(image, ((kernel_size//2, kernel_size//2), (kernel_size//2, kernel_size//2)), mode='constant', constant_values=0)
+
+    # Adiciona padding à imagem
+    pad = kernel_size // 2
+    padded_image = np.pad(image, ((pad, pad), (pad, pad)), mode='constant', constant_values=0)
+
+    # Inicializa a imagem de saída
     output = np.zeros_like(image)
 
+    # Aplica dilatação manualmente
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            region = padded_image[i:i+kernel_size, j:j+kernel_size]
-            output[i, j] = np.max(region * kernel)
+            # Extrai a região correspondente ao kernel
+            region = padded_image[i:i + kernel_size, j:j + kernel_size]
+            # Calcula o valor máximo na região
+            output[i, j] = np.max(region)
+
     return output
+
 
 def adaptive_threshold(image):
     """Aplica limiarização adaptativa (média da vizinhança)."""
